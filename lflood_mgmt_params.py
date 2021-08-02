@@ -11,10 +11,10 @@ import subprocess
 import sys
 
 
-if os.environ['HOSTNAME'] == 'garteri':
-    lustre_nodes = 'egarter[5-8]'
-elif os.environ['HOSTNAME'] == 'slagi':
-    lustre_nodes = 'eslag[3-4]'
+#if os.environ['HOSTNAME'] == 'garteri':
+#lustre_nodes = 'egarter[5-8]'
+#elif os.environ['HOSTNAME'] == 'slagi':
+lustre_nodes = 'eslag[3-4]'
 
 zfs_params_command = (
     'pdsh -w egarter[1-8] \"echo -n \'{} \' && '
@@ -113,11 +113,12 @@ def set_zfs_param(param_name, value):
     '''For all the hosts, set the zfs param to the value.'''
     cmd = (
         f'pdsh -w {lustre_nodes} '
-        f'echo {value} /sys/module/zfs/parameters/{param_name}'
+        f'\'echo {value} > /sys/module/zfs/parameters/{param_name}\''
     )
     subprocess.run(
         [cmd],
-        check=True
+        check=True,
+        shell=True,
     )
 
 def set_zfs_params(param_to_values):
@@ -125,12 +126,12 @@ def set_zfs_params(param_to_values):
     # create a check dict, as in the dict you expect to get from
     # capture_zfs_params if the set goes well
 
-    if os.environ['HOSTNAME'] == 'garteri':
-        cluster_name = 'garter'
-        host_nums = [5,6,7,8]
-    elif os.environ['HOSTNAME'] == 'slagi':
-        cluster_name = 'slag'
-        host_nums = [3,4]
+    # if os.environ['HOSTNAME'] == 'garteri':
+    #     cluster_name = 'garter'
+    #     host_nums = [5,6,7,8]
+    # elif os.environ['HOSTNAME'] == 'slagi':
+    cluster_name = 'slag'
+    host_nums = [3,4]
 
     host_nums = [5,6,7,8]
     expected_host_to_param_value = {cluster_name + str(n): param_to_values
@@ -141,7 +142,7 @@ def set_zfs_params(param_to_values):
         set_zfs_param(param_name, value)
 
     # now get the params
-    actaul_host_to_param_value = capture_zfs_params(param_to_values.keys())
+    actual_host_to_param_value = capture_zfs_params(param_to_values.keys())
 
     # and compare expected to actual
     if expected_host_to_param_value != actual_host_to_param_value:
@@ -169,6 +170,21 @@ def set_jbod_mode():
     then reset them all I think.
     '''
     pass
+
+
+slag_params_orig = {
+    'zfs_dirty_data_max': '4294967296',
+    #'zfs_dirty_data_max_percent': '10',
+    #'zfs_max_recordsize': '1048576'
+}
+
+slag_params_new = {
+    'zfs_dirty_data_max': '8589934592',
+    #'zfs_dirty_data_max_percent': '20',
+    #'zfs_max_recordsize': '1048576'
+}
+
+slag_p = {'zfs_dirty_data_max': '8589934592'}
 
 # def get_jbod_params():
 #     '''get the current jbod params'''
