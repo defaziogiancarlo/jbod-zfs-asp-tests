@@ -127,3 +127,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# non-python part - stuff for this project
+
+# ignore the logs and commands, but keep the README.md
+mdtest_logs/*
+!mdtest_logs/README.md
+ior_logs/*
+!ior_logs/README.md
+srun_commands/*
+!srun_commands/README.md
+
+# I'm not really sure what this is, but maybe I should be logging them all?
+stonewall_status
