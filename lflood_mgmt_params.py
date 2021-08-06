@@ -134,7 +134,6 @@ def capture_zfs_params2(param_list):
     '''For each param in the list, get the param,
     and combine everthign into a single dict of form
     {host: {}}
-
     '''
     capture_params = [capture_zfs_param(param) for param in param_list]
     # now combine the dicts
