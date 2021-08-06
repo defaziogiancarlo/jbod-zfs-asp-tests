@@ -171,7 +171,7 @@ def get_recordsize():
         tokens = line.split()
         node, _ = tokens[1].split('/')
         recordsize = tokens[3]
-        recordsizes[node] = {'recordsize', recordsize}
+        recordsizes[node] = {'recordsize': recordsize}
 
     return recordsizes
 
@@ -315,7 +315,7 @@ def set_jbod_mode(jbod_name, mode):
 # for example for jbod5a and jbod5b, I think
 # setting one will set the other
 def set_and_reset_jbods():
-
+    pass
 
 def set_all_jbod_mode(mode):
     '''Set all the jbods to the given mode.'''
@@ -347,3 +347,57 @@ def dump_params(params):
     params_path = params_dir / time_now
     with open(params_path, 'w') as f:
         yaml.safe_dump(params, f)
+
+
+def all_the_same(items):
+    '''Check that every item in a list is identical.'''
+    if len(items) == 0 or len(items) == 1:
+        return True
+    reference = items[0]
+    for x in items[1:]:
+        if x != reference:
+            return False
+    return True
+
+
+def zfs_check_set_and_check(params):
+    '''For zfs, check the current params,
+    set to the given params,
+    then check that the params are set.
+    '''
+    current_params = get_zfs_params()
+    params_no_keys = list(current_params.values())
+    if not all_the_same(params_no_keys):
+        print('ERROR: zfs params do not match on all nodes', file=sys.stderr)
+        sys.exit(1)
+    print('initial params:')
+    print(params_no_keys[0])
+
+    # actually set the params
+    set_zfs_params(params)
+
+    # now check that the params got set correctly
+    current_params = get_zfs_params()
+    params_no_keys = list(current_params.values())
+    if not all_the_same(params_no_keys):
+        print(
+            'ERROR: zfs params do not match on all nodes after being set',
+            file=sys.stderr
+        )
+        sys.exit(1)
+    #print('initial params:')
+    if params != params_no_keys[0]:
+        print(
+            'ERROR: zfs params were not set correctly',
+            file=sys.stderr
+        )
+        sys.exit(1)
+
+    print('zfs params set to:')
+    print(params_no_keys[0])
+
+default_zfs_params = {
+    'zfs_dirty_data_max': '4294967296',
+    'zfs_dirty_data_max_percent': '10',
+    'zfs_max_recordsize': '1048576'
+}

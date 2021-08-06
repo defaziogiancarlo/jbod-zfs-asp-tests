@@ -1,0 +1,101 @@
+srun: job 1739725 queued and waiting for resources
+srun: job 1739725 has been allocated resources
+0: V-1: Entering PrintTimestamp...
+0: -- started at 08/06/2021 12:27:42 --
+0: 
+0: mdtest-3.4.0+dev was launched with 4 total task(s) on 4 node(s)
+0: Command line used: /g/g0/defazio1/repos/ior/src/mdtest '-v' '-n' '1000000' '-u' '-L' '-F' '-P' '-N' '1' '-d' '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup' '-x' '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status/2021-08-06_122741.121774' '-T' '-C' '-Y' '-W' '300' '-a' 'POSIX'
+0: V-1: Rank   0 Line   237 Entering parse_dirpath on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup...
+0: V-1: Rank   0 Line  1710 Entering md_validate_tests...
+0: V-1: Rank   0 Line  2328 api                     : POSIX
+0: V-1: Rank   0 Line  2329 barriers                : True
+0: V-1: Rank   0 Line  2330 collective_creates      : False
+0: V-1: Rank   0 Line  2331 create_only             : True
+0: V-1: Rank   0 Line  2332 dirpath(s):
+0: V-1: Rank   0 Line  2334 	/p/lflood/defazio1/io500-all/mdtest-easy-cleanup
+0: V-1: Rank   0 Line  2336 dirs_only               : False
+0: V-1: Rank   0 Line  2337 read_bytes              : 0
+0: V-1: Rank   0 Line  2338 read_only               : False
+0: V-1: Rank   0 Line  2339 first                   : 1
+0: V-1: Rank   0 Line  2340 files_only              : True
+0: V-1: Rank   0 Line  2344 iterations              : 1
+0: V-1: Rank   0 Line  2345 items_per_dir           : 0
+0: V-1: Rank   0 Line  2346 last                    : 0
+0: V-1: Rank   0 Line  2347 leaf_only               : True
+0: V-1: Rank   0 Line  2348 items                   : 1000000
+0: V-1: Rank   0 Line  2349 nstride                 : 1
+0: V-1: Rank   0 Line  2350 pre_delay               : 0
+0: V-1: Rank   0 Line  2351 remove_only             : True
+0: V-1: Rank   0 Line  2352 random_seed             : 0
+0: V-1: Rank   0 Line  2353 stride                  : 1
+0: V-1: Rank   0 Line  2354 shared_file             : False
+0: V-1: Rank   0 Line  2355 time_unique_dir_overhead: False
+0: V-1: Rank   0 Line  2356 stone_wall_timer_seconds: 300
+0: V-1: Rank   0 Line  2357 stat_only               : True
+0: V-1: Rank   0 Line  2358 unique_dir_per_task     : True
+0: V-1: Rank   0 Line  2359 write_bytes             : 0
+0: V-1: Rank   0 Line  2360 sync_file               : False
+0: V-1: Rank   0 Line  2361 call_sync               : True
+0: V-1: Rank   0 Line  2362 depth                   : 0
+0: V-1: Rank   0 Line  2363 make_node               : 0
+0: Path                : /p/lflood/defazio1/io500-all/mdtest-easy-cleanup
+0: FS                  : 4059.5 TiB   Used FS: 3.9%   Inodes: 13075.7 Mi   Used Inodes: 7.0%
+0: Nodemap: 1000
+0: V-0: Rank   0 Line  2477 Shifting ranks by 1 for each phase.
+0: 4 tasks, 4000000 files
+0: V-1: Rank   0 Line  2562 
+0: V-1: Rank   0 Line  2563    Operation               Duration              Rate
+0: V-1: Rank   0 Line  2564    ---------               --------              ----
+0: V-1: Rank   0 Line  1955 main: * iteration 1 *
+0: V-1: Rank   0 Line  1881 Entering create_remove_directory_tree on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0, currDepth = 0...
+0: WARNING: unable to create tree directory '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.0.0/'
+0: V-1: Rank   0 Line  1881 Entering create_remove_directory_tree on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.0.0/, currDepth = 1...
+3: WARNING: unable to create tree directory '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.3.0/'
+0: V-1: Rank   0 Line  2031 V-1: main:   Tree creation     :          0.003 sec,        330.052 ops/sec
+1: WARNING: unable to create tree directory '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0/'
+2: WARNING: unable to create tree directory '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.2.0/'
+0: V-1: Rank   0 Line   314 Entering unique_dir_access, set it to /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0
+0: V-1: Rank   0 Line   498 Entering create_remove_items on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0, currDepth = 0...
+0: V-1: Rank   0 Line   431 Entering create_remove_items_helper on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0
+3: V-1: Rank   3 Line  1113 stonewall hit with 354022 items
+2: V-1: Rank   2 Line  1113 stonewall hit with 351222 items
+0: V-1: Rank   0 Line  1113 stonewall hit with 352429 items
+1: V-1: Rank   1 Line  1113 stonewall hit with 320639 items
+1: V-1: Rank   1 Line  1170 stonewall: 320639 of 354022
+3: V-1: Rank   3 Line  1170 stonewall: 354022 of 354022
+2: V-1: Rank   2 Line  1170 stonewall: 351222 of 354022
+0: Continue stonewall hit min: 320639 max: 354022 avg: 344578.0 
+0: 
+0: V-1: Rank   0 Line  1170 stonewall: 352429 of 354022
+0: V-1: Rank   0 Line   498 Entering create_remove_items on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0, currDepth = 0...
+0: V-1: Rank   0 Line   431 Entering create_remove_items_helper on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.1.0
+0: V-1: Rank   0 Line   314 Entering unique_dir_access, set it to /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.2.0
+0: V-1: Rank   0 Line   566 Entering mdtest_stat on /p/lflood/defazio1/io500-all/mdtest-easy-cleanup/test-dir.0-0/mdtest_tree.2.0
+0: V-1: Rank   0 Line  1339   File creation     :        337.253 sec,          0.000 ops/sec
+0: V-1: Rank   0 Line  1341   File creation (stonewall):        300.001 sec,          0.000 ops/sec
+0: V-1: Rank   0 Line  1343   File stat         :        434.965 sec,       1049.721 ops/sec
+0: V-1: Rank   0 Line  1344   File read         :          0.000 sec,        813.908 ops/sec
+0: V-1: Rank   0 Line  1345   File removal      :          0.000 sec,          0.000 ops/sec
+0: 
+0: SUMMARY rate: (of 1 iterations)
+0:    Operation                     Max            Min           Mean        Std Dev
+0:    ---------                     ---            ---           ----        -------
+0:    File creation                4198.883       4198.883       4198.883          0.000
+0:    File stat                    3255.632       3255.632       3255.632          0.000
+0:    File read                       0.000          0.000          0.000          0.000
+0:    File removal                    0.000          0.000          0.000          0.000
+0:    Tree creation                 330.052        330.052        330.052          0.000
+0:    Tree removal                    0.000          0.000          0.000          0.000
+0: 
+0: SUMMARY time: (of 1 iterations)
+0:    Operation                     Max            Min           Mean        Std Dev
+0:    ---------                     ---            ---           ----        -------
+0:    File creation                 337.253        337.253        337.253          0.000
+0:    File stat                     434.966        434.966        434.966          0.000
+0:    File read                       0.000          0.000          0.000          0.000
+0:    File removal                    0.000          0.000          0.000          0.000
+0:    Tree creation                   0.003          0.003          0.003          0.000
+0:    Tree removal                    0.000          0.000          0.000          0.000
+0: V-1: Entering PrintTimestamp...
+0: -- finished at 08/06/2021 12:40:36 --
+0: 
