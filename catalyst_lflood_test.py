@@ -65,9 +65,12 @@ def make_mdtest_command_from_template(timestamp, template):
     will be created (after flag -d) and where the stonewall logs will go
     (after flag -x)
     '''
-    template = copy.deepcopy(template)
+    command = copy.deepcopy(template)
+    command.insert(0, str(mdtest_path))
+    command.insert(str(mdtest_files_path), command.index('-d')+1)
+    command.insert(str(mdtest_files_path / timestamp), command.index('-x')+1)
 
-
+    return command
 
 def make_mdtest_command(timestamp, command=None):
     if command is None:
@@ -139,11 +142,11 @@ def make_ior_command(timestamp):
         '-a', 'POSIX',
     ]
 
-def make_srun_command(test_command_path): # , nodes_and_procs):
+def make_srun_command(test_command_path, num_nodes=None, num_procs=None): # , nodes_and_procs):
     #num_nodes, num_procs = get_nodes_and_procs()
     # pgarter is specifically for catalyst
     #num_nodes, num_procs = nodes_and_procs
-    num_nodes, num_procs = 4,4
+
 
     cmd = ['srun'] + partition + [f'-N{num_nodes}',
                                   f'-n{num_procs}',
@@ -152,7 +155,8 @@ def make_srun_command(test_command_path): # , nodes_and_procs):
     return cmd
 
 
-def single_srun(test_type='mdtest', jbod_zfs_params=None, dryrun=False):
+def single_srun(test_type='mdtest', jbod_zfs_params=None, dryrun=False,
+                num_nodes=None, num_procs=None):
     '''Create a file with a ior or mdtest command, then run it.
     Test type is either 'mdtest' or 'ior'
     jbod_zfs_params is a string of the jbod and zfs commands
@@ -186,7 +190,9 @@ def single_srun(test_type='mdtest', jbod_zfs_params=None, dryrun=False):
         if jbod_zfs_params is not None:
             f.write('# ' + str(jbod_zfs_params) + '\n')
     script_path.chmod(0o755)
-    srun_command = make_srun_command(script_path)
+    srun_command = make_srun_command(script_path,
+                                     num_nodes=num_nodes,
+                                     num_procs=num_procs)
     output_logs_path = logs_dir / timestamp
     run_data = {
         'command': command,
@@ -246,6 +252,12 @@ def make_parser():
             'this is just a way of recording them'
         )
     )
+    parser.add_argument(
+        '-i',
+        '--iterate',
+        action='store_true',
+        help='iterate over the number of procs and nodes',
+    )
     return parser
 
 
@@ -255,7 +267,22 @@ def main():
     args = vars(parser.parse_args())
     print(args)
 
-    single_srun(dryrun=args['dryrun'], jbod_zfs_params=args['zfs_params'])
+
+    if args['iterate']:
+        for num_nodes_base in range(6):
+            for procs_per_node_base in range(5):
+                num_nodes = 2**num_nodes_base
+                procs_per_node =2** procs_per_node_base
+                num_procs = num_nodes * procs_per_node
+                single_srun(
+                    dryrun=args['dryrun'],
+                    jbod_zfs_params=args['zfs_params'],
+                    num_nodes=num_nodes,
+                    num_procs=num_procs,
+                )
+
+    else:
+        single_srun(dryrun=args['dryrun'], jbod_zfs_params=args['zfs_params'])
 
 
 
@@ -266,5 +293,7 @@ if __name__ == '__main__':
     #     runs = 3
     # for _ in range(runs):
     #     single_srun()
+
+
 
     main()
