@@ -5,6 +5,7 @@ that you will do on catalyst. It might resolve some confusions
 chronologically.
 '''
 
+import argparse
 import datetime
 import os
 import re
@@ -288,7 +289,11 @@ def get_jbod_mode(jbod_name):
 def get_all_jbod_modes():
     '''return a dict of jbod_name to mode.'''
     jbod_names = get_jbod_names()
-    return {name: get_jbod_mode(name) for name in jbod_names}
+    return {
+        name: get_jbod_mode(name)
+        for name in jbod_names
+        if name.endswith('a')
+    }
 
 def set_jbod_mode(jbod_name, mode):
     '''set the jbod mode, then check that it was set.'''
@@ -321,7 +326,8 @@ def set_all_jbod_mode(mode):
     '''Set all the jbods to the given mode.'''
     jbod_names = get_jbod_names()
     for name in jbod_names:
-        set_jbod_mode(name, mode)
+        if name.ednswith('a'):
+            set_jbod_mode(name, mode)
 
 def get_params():
     '''Get all the params for zfs and jbod, and
@@ -350,7 +356,11 @@ def dump_params(params):
 
 
 def all_the_same(items):
-    '''Check that every item in a list is identical.'''
+    '''Check that every item in a list is identical.
+    Or, for a dict, check the the values are all the same.
+    '''
+    if isinstance(items, dict):
+        items = list(items.values())
     if len(items) == 0 or len(items) == 1:
         return True
     reference = items[0]
@@ -401,3 +411,56 @@ default_zfs_params = {
     'zfs_dirty_data_max_percent': '10',
     'zfs_max_recordsize': '1048576'
 }
+
+def get_and_display_params():
+    '''This is just the default of what you want,
+    which is to get the setting for the zfs and jbods,
+    then print them out in a form that you can copy and
+    paste into you test-run to record the params.
+    '''
+    # get the zfs params
+    current_params = get_zfs_params()
+    #print(current_params)
+    # get record size
+    record_sizes = get_recordsize()
+    #print(record_sizes)
+    # get jbod mode
+    jbod_modes = get_all_jbod_modes()
+    #print(jbod_modes)
+    # check that all nodes match
+    # put into one big dict and print it
+    if not (all_the_same(current_params) and
+        all_the_same(record_sizes) and
+        all_the_same(jbod_modes)
+    ):
+        print('ERROR: params not all the same')
+        sys.exit(1)
+
+    all_params = list(current_params.values())[0]
+    all_params.update(list(record_sizes.values())[0])
+    jbod_mode = list(jbod_modes.values())[0]
+    all_params.update({'jbod_mode': jbod_mode})
+    print(all_params)
+
+
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-p',
+        '--params',
+        action='store_true',
+        help=(
+            'list the zfs and jbod_params, '
+            'will complain if not all params match'
+        )
+    )
+    return parser
+
+def main():
+    parser = make_parser()
+    args = vars(parser.parse_args())
+    if args['params']:
+        get_and_display_params()
+
+if __name__ == '__main__':
+    main()

@@ -14,9 +14,40 @@ import sys
 
 import yaml
 
+
+# TODO make this not suck
+# have arg parser, be able to specify a bunch of tests
+# and have it just go
+# record stuff in resonable, searchable way
+# pull the restuls of out the logs
+
+# be able to read in config file for:
+# machine it's on
+# ior and mdtest params
+# batch to use
+# number of node, and processes per node
+
+# TODO see why HOSTNAME fails for root
+
+
 # TODO make it so script can run on opal
 
+# maybe get rid of globals, just have a dict
+# that get set by get_config, or has defaults
 
+
+
+def get_hostname():
+    '''For some reason root does have HOSTNAME in env,
+    so you the hostname utility instead.
+    '''
+    return subprocess.run(
+        ['hostname'],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout.decode().strip()
+
+# set some globals, and like all good globlas, these should not be modified
 ior_logs_dir = pathlib.Path(
     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
 )
@@ -30,18 +61,27 @@ stonewall_status = pathlib.Path(
     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status'
 )
 
-#if 'catalyst' in os.environ['HOSTNAME']:
-mdtest_files_path = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
-ior_files_path = ''
-partition = ['-p', 'pgarter']
-#elif 'opal' in os.environ['HOSTNAME']:
-#    mdtest_files_path = '/p/lquake/defazio1/io500-all'
-#    ior_files_path = ''
-#    partition = []
+if 'catalyst' in get_hostname():
+    mdtest_files_path = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
+    ior_files_path = ''
+    partition = ['-p', 'pgarter']
+elif 'opal' in get_hostname():
+    mdtest_files_path = '/p/lquake/defazio1/io500-all'
+    ior_files_path = ''
+    partition = []
 
 mdtest_path = pathlib.Path('/g/g0/defazio1/repos/ior/src/mdtest')
 
 ior_path = pathlib.Path('/g/g0/defazio1/repos/ior/src/ior')
+
+
+def get_config(config_file_path):
+    '''Read in a config file, and set the globals to it
+    values.
+    '''
+    with open(config_file_path, 'r') as f:
+        return yaml.safe_load(f)
+
 
 cameron_mdtest_create_flags = [
     str(mdtest_path),
@@ -58,6 +98,8 @@ cameron_mdtest_stat_flags = [
     '-x', str(stonewall_status),
     '-T', '-a', 'POSIX',
 ]
+
+
 
 def make_mdtest_command_from_template(timestamp, template):
     '''Make a command that can be run and will store it's data in the
@@ -214,6 +256,56 @@ def single_srun(test_type='mdtest', jbod_zfs_params=None, dryrun=False,
             f.write(srun_output)
 
 # /g/g0/defazio1/ior/src/mdtest '-v' '-n' '1000000' '-u' '-L' '-F' '-P' '-N' '1' '-d' '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup' '-x' '/g/g0/defazio1/mdtest_results/mdtest-easy-cleanup.stonewall' '-Y' '-W' '300' '-a' 'POSIX'
+def get_config_values(args):
+    '''Get the configuration values. These come from either the defaults
+    or from a config file. Also, some can be specified on the command
+    line, but that happens external to this function.
+    '''
+    # get the default values
+    defaults = {}
+
+    # set the hostname, which is used for other value
+    defaults['hostname'] = get_hostname()
+
+    defaults['ior_logs_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
+    )
+    defaults['mdtest_logs_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/mdtest_logs'
+    )
+    defaults['scripts_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/srun_commands'
+    )
+    defaults['stonewall_status'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status'
+    )
+
+    if 'catalyst' in defaults['hostname']:
+        defaults['mdtest_files_path'] = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
+        defaults['ior_files_path'] = ''
+        defaults['partition'] = ['-p', 'pgarter']
+    elif 'opal' in defaults['hostname']:
+        defaults['mdtest_files_path'] = '/p/lquake/defazio1/io500-all'
+        defaults['ior_files_path'] = ''
+        defaults['partition'] = []
+
+    defaults['mdtest_path'] = pathlib.Path(
+        '/g/g0/defazio1/repos/ior/src/mdtest'
+    )
+
+    defaults['ior_path'] = pathlib.Path(
+        '/g/g0/defazio1/repos/ior/src/ior'
+    )
+
+    config_file_path = args.get('config')
+    if config_file_path is not None:
+        defaults.update(get_config())
+
+    args_filtered = {k:v for k,v in args.items() if k in defaults}
+    # add any matching keys from args
+
+    # get the value from the config file and update
+    return defaults.update(args_filtered)
 
 def make_parser():
     description = 'do some tests'
@@ -264,6 +356,8 @@ def make_parser():
 def main():
     parser = make_parser()
     args = vars(parser.parse_args())
+    config = get_config_values(args)
+
     print(args)
 
 
@@ -283,9 +377,11 @@ def main():
                     num_nodes=num_nodes,
                     num_procs=num_procs,
                 )
-
     else:
-        single_srun(dryrun=args['dryrun'], jbod_zfs_params=args['zfs_params'])
+        single_srun(
+            dryrun=args['dryrun'],
+            jbod_zfs_params=args['zfs_params']
+        )
 
 
 
