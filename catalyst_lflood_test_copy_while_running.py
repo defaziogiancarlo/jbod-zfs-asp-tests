@@ -35,6 +35,22 @@ import yaml
 # maybe get rid of globals, just have a dict
 # that get set by get_config, or has defaults
 
+# the cameron values might get renamed or moved
+# kept here for now
+cameron_mdtest_create_flags = [
+    str(mdtest_path),
+    '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
+    '-d', str(mdtest_files_path),
+    '-x', str(stonewall_status),
+    '-C', '-Y', '-W', '300', '-a', 'POSIX',
+]
+cameron_mdtest_stat_flags = [
+    str(mdtest_path),
+    '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
+    '-d', str(mdtest_files_path),
+    '-x', str(stonewall_status),
+    '-T', '-a', 'POSIX',
+]
 
 
 def get_hostname():
@@ -46,6 +62,13 @@ def get_hostname():
         check=True,
         stdout=subprocess.PIPE,
     ).stdout.decode().strip()
+
+def get_config(config_file_path):
+    '''Read in a config file, and set the globals to it
+    values.
+    '''
+    with open(config_file_path, 'r') as f:
+        return yaml.safe_load(f)
 
 # set some globals, and like all good globlas, these should not be modified
 ior_logs_dir = pathlib.Path(
@@ -81,24 +104,6 @@ def get_config(config_file_path):
     '''
     with open(config_file_path, 'r') as f:
         return yaml.safe_load(f)
-
-
-cameron_mdtest_create_flags = [
-    str(mdtest_path),
-    '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
-    '-d', str(mdtest_files_path),
-    '-x', str(stonewall_status),
-    '-C', '-Y', '-W', '300', '-a', 'POSIX',
-]
-
-cameron_mdtest_stat_flags = [
-    str(mdtest_path),
-    '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
-    '-d', str(mdtest_files_path),
-    '-x', str(stonewall_status),
-    '-T', '-a', 'POSIX',
-]
-
 
 
 def make_mdtest_command_from_template(timestamp, template):
@@ -350,6 +355,8 @@ def make_parser():
         help='iterate over the number of procs and nodes',
     )
     return parser
+
+
 
 
 

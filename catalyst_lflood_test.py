@@ -145,7 +145,7 @@ def make_ior_command(timestamp):
 def make_srun_command(test_command_path, num_nodes=None, num_procs=None): # , nodes_and_procs):
     #num_nodes, num_procs = get_nodes_and_procs()
     # pgarter is specifically for catalyst
-    num_nodes, num_procs = 4,4
+    #num_nodes, num_procs = 4,4
 
     cmd = ['srun'] + partition + [f'-N{num_nodes}',
                                   f'-n{num_procs}',

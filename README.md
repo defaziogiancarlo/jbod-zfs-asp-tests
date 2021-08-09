@@ -46,6 +46,8 @@ cat etc/hosts | grep jbod
 Then from the mgmt node, following the example
 ~defazio1/supermicro\_system\_utils zone -p ADMIN -u ADMIN -h jbod5a -a get
 
+It turns out you might need to physically restart the jbods for this to work.
+Just setting stuff via software didn't actually cause the change you wanted.
 
 ### run tests on catalyst
 
