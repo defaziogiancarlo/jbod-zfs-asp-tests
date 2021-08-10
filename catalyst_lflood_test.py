@@ -383,7 +383,7 @@ def main():
     if args['iterate']:
         for num_nodes in [8,16,32]:
             for procs_per_node in [1,2,4,8,16]:
-                if num_nodes == 8 and procs_per_node < 2:
+                if num_nodes == 8 and procs_per_node < 8:
                     continue
 
                 #num_nodes = 2**num_nodes_base
