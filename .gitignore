@@ -139,4 +139,5 @@ srun_commands/*
 !srun_commands/README.md
 
 # I'm not really sure what this is, but maybe I should be logging them all?
-stonewall_status
+stonewall_status/*
+stonewall_status_ior/*

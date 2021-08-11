@@ -72,6 +72,65 @@ def get_config(config_file_path):
     with open(config_file_path, 'r') as f:
         return yaml.safe_load(f)
 
+def get_config_values(args):
+    '''Get the configuration values. These come from either the defaults
+    or from a config file. Also, some can be specified on the command
+    line, but that happens external to this function.
+    '''
+    # get the default values
+    defaults = {}
+
+    # set the hostname, which is used for other value
+    defaults['hostname'] = get_hostname()
+
+    defaults['ior_logs_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
+    )
+    defaults['mdtest_logs_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/mdtest_logs'
+    )
+    defaults['scripts_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/srun_commands'
+    )
+    defaults['stonewall_status'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status'
+    )
+    defaults['stonewall_status_ior'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status_ior'
+    )
+
+
+    if 'catalyst' in defaults['hostname']:
+        defaults['mdtest_files_path'] = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
+        defaults['ior_files_path'] = '/p/lflood/defazio1/io500-all/ior/'
+        defaults['partition'] = ['-p', 'pgarter']
+    elif 'opal' in defaults['hostname']:
+        defaults['mdtest_files_path'] = '/p/lquake/defazio1/io500-all'
+        defaults['ior_files_path'] = ''
+        defaults['partition'] = []
+
+    defaults['mdtest_path'] = pathlib.Path(
+        '/g/g0/defazio1/repos/ior/src/mdtest'
+    )
+
+    defaults['ior_path'] = pathlib.Path(
+        '/g/g0/defazio1/repos/ior/src/ior'
+    )
+
+    config_file_path = args.get('config')
+    if config_file_path is not None:
+        defaults.update(get_config())
+
+    args_filtered = {k:v for k,v in args.items() if k in defaults}
+    # add any matching keys from args
+
+
+    # get the value from the config file and update
+    defaults.update(args_filtered)
+
+    return defaults
+
+
 # set some globals, and like all good globlas, these should not be modified
 # ior_logs_dir = pathlib.Path(
 #     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
@@ -172,16 +231,19 @@ def make_ior_command(timestamp, config):
         '-G', '271',
         '-k',
         '-e',
-        '-o', '/p/lflood/harr1/io500-all/$(date +"%Y.%m.%d-%H.%M.%S")/ior-easy/ior_file_easy',
-        '-O', 'stoneWallingStatusFile=./results/$(date +"%Y.%m.%d-%H.%M.%S")/ior-easy.stonewall',
-        '-t', '2m'
-        '-b', '9920000m'
+        '-o', str(config['ior_files_path']),
+        '-O', ('stoneWallingStatusFile='+ str(config['stonewall_status_ior'] / timestamp)),
+        '-t', '2m',
+        '-b', '9920000m',
         '-F',
         '-w',
-        '-D', '300'
+        '-D', '300',
         '-O', 'stoneWallingWearOut=1',
         '-a', 'POSIX',
     ]
+    command = ['\'' + x + '\'' for x in command]
+    command = ' '.join(command)
+    return command
 
 def make_srun_command(test_command_path, config, num_nodes=None, num_procs=None): # , nodes_and_procs):
     #num_nodes, num_procs = get_nodes_and_procs()
@@ -208,7 +270,7 @@ def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
         make_command = make_mdtest_command
         logs_dir = config['mdtest_logs_dir']
     elif test_type.lower() == 'ior':
-        make_command = make_ior_test
+        make_command = make_ior_command
         logs_dir = config['ior_logs_dir']
 
 
@@ -258,8 +320,8 @@ def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
                     #stderr=subprocess.STDOUT,
                 ).stdout.decode()
                 break
-            except CalledProcessError:
-                print('failed try {t} of {tries}, retrying in 1 minute...')
+            except subprocess.CalledProcessError:
+                print(f'failed try {t} of {tries}, retrying in 1 minute...')
                 time.sleep(60)
                 print('trying again')
 
@@ -267,59 +329,6 @@ def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
             f.write(srun_output)
 
 # /g/g0/defazio1/ior/src/mdtest '-v' '-n' '1000000' '-u' '-L' '-F' '-P' '-N' '1' '-d' '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup' '-x' '/g/g0/defazio1/mdtest_results/mdtest-easy-cleanup.stonewall' '-Y' '-W' '300' '-a' 'POSIX'
-def get_config_values(args):
-    '''Get the configuration values. These come from either the defaults
-    or from a config file. Also, some can be specified on the command
-    line, but that happens external to this function.
-    '''
-    # get the default values
-    defaults = {}
-
-    # set the hostname, which is used for other value
-    defaults['hostname'] = get_hostname()
-
-    defaults['ior_logs_dir'] = pathlib.Path(
-        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
-    )
-    defaults['mdtest_logs_dir'] = pathlib.Path(
-        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/mdtest_logs'
-    )
-    defaults['scripts_dir'] = pathlib.Path(
-        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/srun_commands'
-    )
-    defaults['stonewall_status'] = pathlib.Path(
-        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status'
-    )
-
-    if 'catalyst' in defaults['hostname']:
-        defaults['mdtest_files_path'] = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
-        defaults['ior_files_path'] = ''
-        defaults['partition'] = ['-p', 'pgarter']
-    elif 'opal' in defaults['hostname']:
-        defaults['mdtest_files_path'] = '/p/lquake/defazio1/io500-all'
-        defaults['ior_files_path'] = ''
-        defaults['partition'] = []
-
-    defaults['mdtest_path'] = pathlib.Path(
-        '/g/g0/defazio1/repos/ior/src/mdtest'
-    )
-
-    defaults['ior_path'] = pathlib.Path(
-        '/g/g0/defazio1/repos/ior/src/ior'
-    )
-
-    config_file_path = args.get('config')
-    if config_file_path is not None:
-        defaults.update(get_config())
-
-    args_filtered = {k:v for k,v in args.items() if k in defaults}
-    # add any matching keys from args
-
-
-    # get the value from the config file and update
-    defaults.update(args_filtered)
-
-    return defaults
 
 def make_parser():
     description = 'do some tests'
@@ -331,6 +340,7 @@ def make_parser():
     )
     parser.add_argument(
         '--test-type',
+        default='mdtest',
         help='the type of test, either \'mdtest\' or \'ior\''
     )
     parser.add_argument(
@@ -377,13 +387,14 @@ def main():
 
     #print(config)
     #sys.exit(1)
-    print(args)
+    #print(args)
 
 
     if args['iterate']:
-        for num_nodes in [8,16,32]:
+        for num_nodes in [1,2,4,8,16,32]:
             for procs_per_node in [1,2,4,8,16]:
-                if num_nodes == 8 and procs_per_node < 8:
+                if ((num_nodes == 1 and procs_per_node == 1) or
+                (num_nodes == 2 and procs_per_node == 2)):
                     continue
 
                 #num_nodes = 2**num_nodes_base
@@ -395,11 +406,16 @@ def main():
                     jbod_zfs_params=args['zfs_params'],
                     num_nodes=num_nodes,
                     num_procs=num_procs,
+                    test_type=args['test_type'],
                 )
     else:
         single_srun(
+            config,
             dryrun=args['dryrun'],
-            jbod_zfs_params=args['zfs_params']
+            jbod_zfs_params=args['zfs_params'],
+            test_type=args['test_type'],
+            num_nodes=2,
+            num_procs=2,
         )
 
 

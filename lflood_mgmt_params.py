@@ -23,6 +23,9 @@ zfs_params_command = (
     'cat /sys/module/zfs/parameters/{}\"'
 )
 
+
+# TODO pdsh -w egarter[5-8]  /admin/scripts/ldisklist | dshbak -c
+
 # TODO, make this work for list, set and dict
 # for dict, the value would have to be a dict
 # for creating new dict (d is None) you can specify the value
@@ -441,6 +444,15 @@ def get_and_display_params():
     jbod_mode = list(jbod_modes.values())[0]
     all_params.update({'jbod_mode': jbod_mode})
     print(all_params)
+
+def get_scsi():
+    '''Get the list of scsi devices to verify
+    zoning is actually set.
+    '''
+    subprocess.run(
+        ['pdsh -w egarter[5-8]  /admin/scripts/ldisklist | dshbak -c'],
+        check=True
+    )
 
 
 def make_parser():
