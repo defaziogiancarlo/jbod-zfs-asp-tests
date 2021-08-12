@@ -38,22 +38,55 @@ import yaml
 
 # the cameron values might get renamed or moved
 # kept here for now
-# cameron_mdtest_create_flags = [
-#     str(mdtest_path),
-#     '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
-#     '-d', str(mdtest_files_path),
-#     '-x', str(stonewall_status),
-#     '-C', '-Y', '-W', '300', '-a', 'POSIX',
-# ]
-# cameron_mdtest_stat_flags = [
-#     str(mdtest_path),
-#     '-n', '1000000', '-u', '-L', '-F', '-P', '-N', '1',
-#     '-d', str(mdtest_files_path),
-#     '-x', str(stonewall_status),
-#     '-T', '-a', 'POSIX',
-# ]
+cameron_mdtest_create_template = [
+    '-n', '1000000',
+    '-u', '-L', '-F', '-P',
+    '-N', '1',
+    '-d',
+    '-x',
+    '-C', '-Y',
+    '-W', '300',
+    '-a', 'POSIX',
+]
+cameron_mdtest_stat_template = [
+    '-n', '1000000',
+    '-u', '-L', '-F', '-P',
+    '-N', '1',
+    '-d',
+    '-x',
+    '-T',
+    '-a', 'POSIX',
+]
 
+cameron_ior_read_template = [
+    '-C',
+    '-Q', '1',
+    '-g',
+    '-G', '271',
+    '-k', '-e',
+    '-o',
+    '-O',
+    '-t', '2m',
+    '-b', '9920000m',
+    '-F', '-r', '-R',
+    '-a', 'POSIX',
+]
 
+cameron_ior_write_template = [
+    '-C',
+    '-Q', '1',
+    '-g',
+    '-G', '271',
+    '-k', '-e',
+    '-o',
+    '-O',
+    '-t', '2m',
+    '-b', '9920000m',
+    '-F', '-w',
+    '-D', '300',
+    '-O', 'stoneWallingWearOut=1',
+    '-a', 'POSIX',
+]
 
 def get_hostname():
     '''For some reason root does have HOSTNAME in env,
@@ -101,11 +134,17 @@ def get_config_values(args):
 
 
     if 'catalyst' in defaults['hostname']:
-        defaults['mdtest_files_path'] = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
-        defaults['ior_files_path'] = '/p/lflood/defazio1/io500-all/ior/'
+        defaults['mdtest_files_path'] = pathlib.Path(
+            '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
+        )
+        defaults['ior_files_path'] = pathlib.Path(
+            '/p/lflood/defazio1/io500-all/ior/'
+        )
         defaults['partition'] = ['-p', 'pgarter']
     elif 'opal' in defaults['hostname']:
-        defaults['mdtest_files_path'] = '/p/lquake/defazio1/io500-all'
+        defaults['mdtest_files_path'] = pathlib.Path(
+            '/p/lquake/defazio1/io500-all'
+        )
         defaults['ior_files_path'] = ''
         defaults['partition'] = []
 
@@ -131,33 +170,6 @@ def get_config_values(args):
     return defaults
 
 
-# set some globals, and like all good globlas, these should not be modified
-# ior_logs_dir = pathlib.Path(
-#     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/ior_logs'
-# )
-# mdtest_logs_dir = pathlib.Path(
-#     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/mdtest_logs'
-# )
-# scripts_dir = pathlib.Path(
-#     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/srun_commands'
-# )
-# stonewall_status = pathlib.Path(
-#     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status'
-# )
-
-# if 'catalyst' in get_hostname():
-#     mdtest_files_path = '/p/lflood/defazio1/io500-all/mdtest-easy-cleanup'
-#     ior_files_path = ''
-#     partition = ['-p', 'pgarter']
-# elif 'opal' in get_hostname():
-#     mdtest_files_path = '/p/lquake/defazio1/io500-all'
-#     ior_files_path = ''
-#     partition = []
-
-# mdtest_path = pathlib.Path('/g/g0/defazio1/repos/ior/src/mdtest')
-
-# ior_path = pathlib.Path('/g/g0/defazio1/repos/ior/src/ior')
-
 
 def make_mdtest_command_from_template(timestamp, template, config):
     '''Make a command that can be run and will store it's data in the
@@ -167,10 +179,33 @@ def make_mdtest_command_from_template(timestamp, template, config):
     '''
     command = copy.deepcopy(template)
     command.insert(0, str(config['mdtest_path']))
-    command.insert(str(config['mdtest_files_path']), command.index('-d')+1)
-    command.insert(str(config['mdtest_files_path'] / timestamp), command.index('-x')+1)
+    if '-v' not in command:
+        command.insert(1, '-v')
+    command.insert(command.index('-d') + 1, str(config['mdtest_files_path']))
+    command.insert(command.index('-x') + 1, str(config['stonewall_status'] / timestamp))
 
+    command = ['\'' + x + '\'' for x in command]
+    command = ' '.join(command)
     return command
+
+
+
+def make_ior_command_from_template(timestamp, template, config, stone_ts=None):
+    if stone_ts is None:
+        stone_ts = timestamp
+    command = copy.deepcopy(template)
+    command.insert(0, str(config['ior_path']))
+    command.insert(command.index('-o')+1, str(config['ior_files_path']))
+    command.insert(
+        command.index('-O') + 1,
+        ('stoneWallingStatusFile='+ str(config['stonewall_status_ior'] / stone_ts))
+    )
+
+    command = ['\'' + x + '\'' for x in command]
+    command = ' '.join(command)
+    return command
+
+
 
 def make_mdtest_command(timestamp, config, command=None):
     if command is None:
@@ -210,7 +245,7 @@ def make_mdtest_command(timestamp, config, command=None):
             '-N', '1',
             '-d', str(config['mdtest_files_path']),
             '-x', str(config['stonewall_status'] / timestamp),
-            '-T',
+            #'-T',
             '-C',
             '-Y',
             '-W', '300',
@@ -222,7 +257,7 @@ def make_mdtest_command(timestamp, config, command=None):
 
 
 
-def make_ior_command(timestamp, config):
+def make_ior_command(timestamp, config, template=None):
     command = [
         str(config['ior_path']),
         '-C',
@@ -245,20 +280,27 @@ def make_ior_command(timestamp, config):
     command = ' '.join(command)
     return command
 
+def make_ior_command(timestamp, config, template=None):
+    return cameron_mdtest_create_template(timestamp, template, config)
+
+
+
+
 def make_srun_command(test_command_path, config, num_nodes=None, num_procs=None): # , nodes_and_procs):
     #num_nodes, num_procs = get_nodes_and_procs()
     # pgarter is specifically for catalyst
     #num_nodes, num_procs = 4,4
 
     cmd = ['srun'] + config['partition'] + [f'-N{num_nodes}',
-                                  f'-n{num_procs}',
-                                  '-l',
-                                  str(test_command_path)]
+                                            f'-n{num_procs}',
+                                            '--time', '05:59:00',
+                                            '-l',
+                                            str(test_command_path)]
     return cmd
 
 
-def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
-                num_nodes=None, num_procs=None, tries=5):
+def single_srun(config, test_type='mdtest', template=None, jbod_zfs_params=None, dryrun=False,
+                num_nodes=None, num_procs=None, tries=5, ts=None, stone_ts=None):
     '''Create a file with a ior or mdtest command, then run it.
     Test type is either 'mdtest' or 'ior'
     jbod_zfs_params is a string of the jbod and zfs commands
@@ -267,19 +309,28 @@ def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
     '''
 
     if test_type.lower() == 'mdtest':
-        make_command = make_mdtest_command
+        # make_command = make_mdtest_command
+        make_command = make_mdtest_command_from_template
         logs_dir = config['mdtest_logs_dir']
     elif test_type.lower() == 'ior':
-        make_command = make_ior_command
+        # make_command = make_ior_command
+        make_command = make_ior_command_from_template
         logs_dir = config['ior_logs_dir']
 
 
     #optional_flags = get_optional_flags(all_optional_flags)
-    timestamp = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
+    if ts is None:
+        timestamp = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
+    else:
+        timestamp = ts
+
 
     command = make_command(
         timestamp,
+        template,
         config,
+        stone_ts=stone_ts,
+
         #optional_flags=optional_flags
     )
     script_path = config['scripts_dir'] / timestamp
@@ -321,8 +372,8 @@ def single_srun(config, test_type='mdtest', jbod_zfs_params=None, dryrun=False,
                 ).stdout.decode()
                 break
             except subprocess.CalledProcessError:
-                print(f'failed try {t} of {tries}, retrying in 1 minute...')
-                time.sleep(60)
+                print(f'failed try {t} of {tries}, retrying in {t} minutes...')
+                time.sleep(60 * t)
                 print('trying again')
 
         with open(output_logs_path, 'w+') as f:
@@ -378,6 +429,31 @@ def make_parser():
 
 #def iter_nodes_procs()
 
+def ior_write_read(args, config, num_nodes, num_procs):
+    '''do an ior write followed by an ior read'''
+    ts = timestamp = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
+    single_srun(
+        config,
+        template = cameron_ior_write_template,
+        dryrun=args['dryrun'],
+        jbod_zfs_params=args['zfs_params'],
+        test_type=args['test_type'],
+        ts=ts,
+        num_nodes=num_nodes,
+        num_procs=num_procs,
+    )
+    single_srun(
+        config,
+        template = cameron_ior_read_template,
+        dryrun=args['dryrun'],
+        jbod_zfs_params=args['zfs_params'],
+        test_type=args['test_type'],
+        #ts=ts,
+        stone_ts=ts,
+        num_nodes=num_nodes,
+        num_procs=num_procs,
+    )
+
 
 
 def main():
@@ -393,30 +469,35 @@ def main():
     if args['iterate']:
         for num_nodes in [1,2,4,8,16,32]:
             for procs_per_node in [1,2,4,8,16]:
-                if ((num_nodes == 1 and procs_per_node == 1) or
-                (num_nodes == 2 and procs_per_node == 2)):
+                if (num_nodes <= 2 and procs_per_node <= 2):
                     continue
-
-                #num_nodes = 2**num_nodes_base
-                #procs_per_node =2** procs_per_node_base
-                num_procs = num_nodes * procs_per_node
-                single_srun(
-                    config,
-                    dryrun=args['dryrun'],
-                    jbod_zfs_params=args['zfs_params'],
-                    num_nodes=num_nodes,
-                    num_procs=num_procs,
-                    test_type=args['test_type'],
-                )
-    else:
-        single_srun(
-            config,
-            dryrun=args['dryrun'],
-            jbod_zfs_params=args['zfs_params'],
-            test_type=args['test_type'],
-            num_nodes=2,
-            num_procs=2,
-        )
+                #(num_nodes == 2 and procs_per_node == 2)):
+                #    continue
+                else:
+                    num_procs = num_nodes * procs_per_node
+                    ior_write_read(args, config, num_nodes, num_procs)
+    #             #num_nodes = 2**num_nodes_base
+    #             #procs_per_node =2** procs_per_node_base
+    #             num_procs = num_nodes * procs_per_node
+    #             single_srun(
+    #                 config,
+    #                 template = cameron_ior_read_template,
+    #                 dryrun=args['dryrun'],
+    #                 jbod_zfs_params=args['zfs_params'],
+    #                 num_nodes=num_nodes,
+    #                 num_procs=num_procs,
+    #                 test_type=args['test_type'],
+    #             )
+    # else:
+    #     single_srun(
+    #         config,
+    #         template = cameron_ior_write_template,
+    #         dryrun=args['dryrun'],
+    #         jbod_zfs_params=args['zfs_params'],
+    #         test_type=args['test_type'],
+    #         num_nodes=2,
+    #         num_procs=2,
+    #     )
 
 
 
@@ -427,7 +508,15 @@ if __name__ == '__main__':
     #     runs = 3
     # for _ in range(runs):
     #     single_srun()
+    # config = get_config_values({})
+    # ts = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
+    # md = make_mdtest_command(ts, config)
+    # mdt = make_mdtest_command_from_template(ts, cameron_mdtest_create_template, config)
+    # print(md == mdt)
 
-
+    # i = make_ior_command(ts, config)
+    # itt = make_ior_command_from_template(ts, cameron_ior_write_template, config)
+    # print(i == itt)
+    # print(make_ior_command_from_template(ts, cameron_ior_read_template, config))
 
     main()
