@@ -38,6 +38,9 @@ import yaml
 
 # the cameron values might get renamed or moved
 # kept here for now
+
+# TODO should this be a templates dict
+# with each template as a member? yes
 cameron_mdtest_create_template = [
     '-n', '1000000',
     '-u', '-L', '-F', '-P',
@@ -130,6 +133,9 @@ def get_config_values(args):
     )
     defaults['stonewall_status_ior'] = pathlib.Path(
         '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/stonewall_status_ior'
+    )
+    defaults['meta_data_dir'] = pathlib.Path(
+        '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/test_meta_data'
     )
 
 
@@ -286,6 +292,57 @@ def make_ior_command(timestamp, config, template=None):
 
 
 
+def make_test_meta_data(command, srun_command, output_logs_path,
+                        jbod_zfs_params, test_type, timestamp,
+                        num_nodes, num_procs, dryrun, template):
+    '''log all pertinent data about a test.
+    dry_run
+    ior vs. mdtest
+    if ior
+      read write
+    if mdtest
+      stat create
+    output files
+    test command
+    srun command
+    num_modes
+    num_procs
+    jbod mode
+    zfs_params
+    '''
+    meta_data =  {
+        'command': command,
+        'srun_command': srun_command,
+        'script_path': str(script_path),
+        'output_logs_path': str(output_logs_path),
+        'jbod_zfs_params': jbod_zfs_params,
+        'num_nodes': num_nodes,
+        'num_procs': num_procs,
+        'dryrun': dryrun,
+        'test_type': test_type,
+        'timestamp': timestamp,
+    }
+    # now attemp to figure out if it's create, stat, write, or read
+    if template == cameron_mdtest_create_template:
+        test_subtype = 'create'
+    elif template == cameron_mdtest_stat_template:
+        test_subtype = 'stat'
+    elif template == cameron_ior_read_template:
+        test_subtype = 'read'
+    elif template == cameron_ior_write_template:
+        test_subtype = 'write'
+
+    meta_data['test_subtype'] = test_subtype
+
+    return meta_data
+
+
+def log_test_meta_data(meta_data, config):
+    '''log the test_meta_data'''
+    path = config['meta_data_dir'] / meta_data['timestamp']
+    with open(path, 'w') as f:
+        yaml.safe_dump(meta_data, f)
+
 def make_srun_command(test_command_path, config, num_nodes=None, num_procs=None): # , nodes_and_procs):
     #num_nodes, num_procs = get_nodes_and_procs()
     # pgarter is specifically for catalyst
@@ -297,6 +354,10 @@ def make_srun_command(test_command_path, config, num_nodes=None, num_procs=None)
                                             '-l',
                                             str(test_command_path)]
     return cmd
+
+
+
+
 
 
 def single_srun(config, test_type='mdtest', template=None, jbod_zfs_params=None, dryrun=False,
@@ -359,6 +420,13 @@ def single_srun(config, test_type='mdtest', template=None, jbod_zfs_params=None,
     # what you need to do analysis
     print(run_data)
     print()
+    test_meta_data = make_test_meta_data(
+        command, srun_command, output_logs_path,
+        jbod_zfs_params, test_type, timestamp,
+        num_nodes, num_procs, dryrun, template
+    )
+    log_test_meta_data(test_meta_data, config)
+
     if not dryrun:
 
         # slurm keeps kicking me out, so retry as needed
@@ -429,6 +497,36 @@ def make_parser():
 
 #def iter_nodes_procs()
 
+def mdtest_ior(args, config, num_nodes, num_procs):
+    mdtest_create_stat(args, config, num_nodes, num_procs)
+    ior_write_read(args, config, num_nodes, num_procs)
+
+def mdtest_create_stat(args, config, num_nodes, num_procs):
+
+    ts = timestamp = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
+    single_srun(
+        config,
+        template = cameron_mdtest_create_template,
+        dryrun=args['dryrun'],
+        jbod_zfs_params=args['zfs_params'],
+        test_type='mdtest',
+        ts=ts,
+        num_nodes=num_nodes,
+        num_procs=num_procs,
+    )
+    single_srun(
+        config,
+        template = cameron_mdtest_stat_template,
+        dryrun=args['dryrun'],
+        jbod_zfs_params=args['zfs_params'],
+        test_type='mdtest',
+        #ts=ts,
+        stone_ts=ts,
+        num_nodes=num_nodes,
+        num_procs=num_procs,
+    )
+
+
 def ior_write_read(args, config, num_nodes, num_procs):
     '''do an ior write followed by an ior read'''
     ts = timestamp = str(datetime.datetime.now()).replace(' ', '_').replace(':', '')
@@ -437,7 +535,7 @@ def ior_write_read(args, config, num_nodes, num_procs):
         template = cameron_ior_write_template,
         dryrun=args['dryrun'],
         jbod_zfs_params=args['zfs_params'],
-        test_type=args['test_type'],
+        test_type='ior',
         ts=ts,
         num_nodes=num_nodes,
         num_procs=num_procs,
@@ -447,7 +545,7 @@ def ior_write_read(args, config, num_nodes, num_procs):
         template = cameron_ior_read_template,
         dryrun=args['dryrun'],
         jbod_zfs_params=args['zfs_params'],
-        test_type=args['test_type'],
+        test_type='ior',
         #ts=ts,
         stone_ts=ts,
         num_nodes=num_nodes,
@@ -469,13 +567,13 @@ def main():
     if args['iterate']:
         for num_nodes in [1,2,4,8,16,32]:
             for procs_per_node in [1,2,4,8,16]:
-                if (num_nodes <= 2 and procs_per_node <= 2):
-                    continue
+                #if (num_nodes <= 2 and procs_per_node <= 2):
+                #    continue
                 #(num_nodes == 2 and procs_per_node == 2)):
                 #    continue
-                else:
-                    num_procs = num_nodes * procs_per_node
-                    ior_write_read(args, config, num_nodes, num_procs)
+                #else:
+                num_procs = num_nodes * procs_per_node
+                ior_write_read(args, config, num_nodes, num_procs)
     #             #num_nodes = 2**num_nodes_base
     #             #procs_per_node =2** procs_per_node_base
     #             num_procs = num_nodes * procs_per_node

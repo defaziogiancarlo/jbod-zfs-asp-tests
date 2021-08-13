@@ -415,6 +415,12 @@ default_zfs_params = {
     'zfs_max_recordsize': '1048576'
 }
 
+brian_zfs_params = {
+    'zfs_dirty_data_max': '68719476736',
+    'zfs_dirty_data_max_percent': '30',
+    'zfs_max_recordsize': '16777216'
+}
+
 def get_and_display_params():
     '''This is just the default of what you want,
     which is to get the setting for the zfs and jbods,
