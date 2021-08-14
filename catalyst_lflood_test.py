@@ -177,7 +177,7 @@ def get_config_values(args):
 
 
 
-def make_mdtest_command_from_template(timestamp, template, config):
+def make_mdtest_command_from_template(timestamp, template, config, stone_ts=None):
     '''Make a command that can be run and will store it's data in the
     right place. The template can omit the location of where the test files
     will be created (after flag -d) and where the stonewall logs will go
@@ -294,7 +294,8 @@ def make_ior_command(timestamp, config, template=None):
 
 def make_test_meta_data(command, srun_command, output_logs_path,
                         jbod_zfs_params, test_type, timestamp,
-                        num_nodes, num_procs, dryrun, template):
+                        num_nodes, num_procs, dryrun, template,
+                        script_path):
     '''log all pertinent data about a test.
     dry_run
     ior vs. mdtest
@@ -423,7 +424,8 @@ def single_srun(config, test_type='mdtest', template=None, jbod_zfs_params=None,
     test_meta_data = make_test_meta_data(
         command, srun_command, output_logs_path,
         jbod_zfs_params, test_type, timestamp,
-        num_nodes, num_procs, dryrun, template
+        num_nodes, num_procs, dryrun, template,
+        script_path,
     )
     log_test_meta_data(test_meta_data, config)
 
@@ -573,7 +575,8 @@ def main():
                 #    continue
                 #else:
                 num_procs = num_nodes * procs_per_node
-                ior_write_read(args, config, num_nodes, num_procs)
+                #ior_write_read(args, config, num_nodes, num_procs)
+                mdtest_create_stat(args, config, num_nodes, num_procs)
     #             #num_nodes = 2**num_nodes_base
     #             #procs_per_node =2** procs_per_node_base
     #             num_procs = num_nodes * procs_per_node
