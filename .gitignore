@@ -143,3 +143,4 @@ test_meta_data/*
 # I'm not really sure what this is, but maybe I should be logging them all?
 stonewall_status/*
 stonewall_status_ior/*
+temp_test_meta_data/*

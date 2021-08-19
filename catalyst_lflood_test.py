@@ -568,28 +568,28 @@ def main():
 
 
     if args['iterate']:
-        for num_nodes in [1,2,4,8,16,32]:
+        for num_nodes in [2,4,8,16,32]:
             for procs_per_node in [1,2,4,8,16]:
-                num_procs = num_nodes * procs_per_node
-                single_srun(
-                    config,
-                    template = cameron_mdtest_create_template,
-                    dryrun=args['dryrun'],
-                    jbod_zfs_params=args['zfs_params'],
-                    test_type='mdtest',
-                    # ts=ts,
-                    num_nodes=num_nodes,
-                    num_procs=num_procs,
-                )
+                # num_procs = num_nodes * procs_per_node
+                # single_srun(
+                #     config,
+                #     template = cameron_mdtest_create_template,
+                #     dryrun=args['dryrun'],
+                #     jbod_zfs_params=args['zfs_params'],
+                #     test_type='mdtest',
+                #     # ts=ts,
+                #     num_nodes=num_nodes,
+                #     num_procs=num_procs,
+                # )
 
-                #if (num_nodes == 4 and procs_per_node < 16):
-                #    continue
+                if (num_nodes == 2 and procs_per_node < 8):
+                    continue
                 #(num_nodes == 2 and procs_per_node == 2)):
                 #    continue
-                #else:
-                #    num_procs = num_nodes * procs_per_node
-                    #ior_write_read(args, config, num_nodes, num_procs)
-                #    mdtest_create_stat(args, config, num_nodes, num_procs)
+                else:
+                    num_procs = num_nodes * procs_per_node
+                    ior_write_read(args, config, num_nodes, num_procs)
+                #mdtest_create_stat(args, config, num_nodes, num_procs)
     #             #num_nodes = 2**num_nodes_base
     #             #procs_per_node =2** procs_per_node_base
     #             num_procs = num_nodes * procs_per_node
