@@ -2,7 +2,9 @@
 
 import ast
 import glob
+import operator
 import pathlib
+import pprint
 import re
 
 import yaml
@@ -11,6 +13,16 @@ import yaml
 # look at all the srun_files
 # create a dict and a filename from each, write to
 # temp_meta_data_dir
+
+srun_proc_prefix = re.compile(r'^\s*\d+: ')
+
+def remove_proc_number(line):
+    return srun_proc_prefix.sub('', line, count=1)
+
+
+def lines_without_proc_nums(path):
+    with open(path, 'r') as f:
+        return [remove_proc_number(line) for line in f]
 
 
 zfs_line_pattern = r'^# {.*}$'
@@ -104,6 +116,39 @@ def get_data_from_mdtest(mdtest_logs_path):
 
     return stats
 
+def get_data_from_ior(ior_logs_path):
+    '''Parse the output of ior and get the data
+    you crave!
+    '''
+
+    with open(ior_logs_path, 'r') as f:
+        lines = f.read().splitlines()
+    lines = [remove_proc_number(line) for line in lines]
+
+    # look for the line that starts with
+    state = 'outside_tests'
+    results = {}
+    for line in lines:
+        if state == 'outside_tests' and 'Summary of all tests' in line:
+            state = 'in_summary'
+        if state == 'in_summary' and line.startswith('Operation'):
+            results['ops'] = line.split()
+        if state == 'in_summary' and line.startswith('write'):
+            results['write'] = line.split()
+        if state == 'in_summary' and line.startswith('read'):
+            results['read'] = line.split()
+        if state == 'in_summary' and line.startswith('Finished'):
+            break
+
+    return results
+
+def get_results(path, test_type):
+    if test_type == 'ior':
+        return get_data_from_ior(path)
+    if test_type == 'mdtest':
+        return get_data_from_mdtest(path)
+
+
 # TODO make it so that dry run scripts get this label upon creation
 
 
@@ -195,6 +240,44 @@ def get_all_run_meta_data():
 
     return meta_data
 
+def get_command(path):
+    '''get the command from the srun file'''
+    with open(path, 'r') as f:
+        lines = f.readlines()
+
+    for line in lines:
+        if lines != '' and not line.startswith('#'):
+            cmd = line.split()
+            cmd = [x[1:-1] for x in cmd]
+            return cmd
+
+
+def get_nodes_and_procs(path, test_type):
+    '''Get the num nodes and num procs out of the log file'''
+    lines = lines_without_proc_nums(path)
+
+    if test_type == 'ior':
+        for line in lines:
+            if line.startswith('nodes'):
+                nodes = int(line.split()[-1])
+            if line.startswith('tasks'):
+                procs = int(line.split()[-1])
+                return nodes, procs
+
+    if test_type == 'mdtest':
+        # look for line with 'launched with'
+        for line in lines:
+            if 'launched with' in line:
+                nums = []
+                for token in line.split():
+                    try:
+                        nums.append(int(token))
+                    except:
+                        pass
+                return nums[1], nums[0]
+
+    # likely an error in the run, so no nodes/procs
+    return None, None
 
 
 def make_meta_for_existing():
@@ -224,27 +307,53 @@ def make_meta_for_existing():
     iors, mdtests = completed_runs()
     # check if output_logs, otherwise dryrun is true
 
+    files_to_do = srun_files & (iors | mdtests)
 
 
-    for srun_file in srun_files:
-        path = temp_meta_data_dir / srun_file
+    for srun_file in files_to_do:
 
-        zfs_stuff = parse_zfs_params(srun_commands_dir / srun_file)
+        # timestamp is the filename
+        timestamp = srun_file
+
+        path = temp_meta_data_dir / timestamp
+
+        srun_path = srun_commands_dir / timestamp
+        zfs_stuff = parse_zfs_params(srun_path)
+
+        # get the command (mdtest or ior)
+        command = get_command(srun_path)
+        if command is None:
+            # probably a super dry run
+            continue
+
+        # get ior/mdetest from command
+        test_type = pathlib.Path(command[0]).name
+
+        # logs path should just be the test type and the timestamp
+        if test_type == 'ior':
+            output_logs_path = ior_logs_dir / timestamp
+        if test_type == 'mdtest':
+            output_logs_path = mdtest_logs_dir / timestamp
+
+        # based on the test type, get num_node and num_procs
+        num_nodes, num_procs = get_nodes_and_procs(output_logs_path, test_type)
+        if num_nodes is None or num_procs is None:
+            continue
 
 
         meta_data =  {
-            'command': None,
+            'command': command,
             'srun_command': None,
-            'script_path': None,
-            'output_logs_path': None,
+            'script_path': str(srun_path),
+            'output_logs_path': str(output_logs_path),
             'jbod_zfs_params': zfs_stuff,
-            'num_nodes': 1,
-            'num_procs': 1,
+            'num_nodes': num_nodes,
+            'num_procs': num_procs,
             'dryrun': (
                 srun_file not in iors and srun_file not in mdtests
             ),
-            'test_type': None,
-            'timestamp': srun_file,
+            'test_type': test_type,
+            'timestamp': timestamp,
         }
         with open(path, 'w') as f:
             yaml.safe_dump(meta_data, f)
@@ -295,3 +404,176 @@ def make_test_meta_data(command, srun_command, output_logs_path,
     meta_data['test_subtype'] = test_subtype
 
     return meta_data
+
+def do_it_all():
+    '''Do it all, go from files to to speadsheet summary
+    '''
+
+    meta_data = get_all_meta()
+
+    # now get all the results, if no results, throw out the meta_data
+    for x in meta_data:
+        try:
+            x['results'] = get_results(x['output_logs_path'], x['test_type'])
+        except:
+            pass
+
+    meta_data = [x for x in meta_data if x.get('results')]
+
+    ior = [x for x in meta_data if x['test_type'] == 'ior']
+    mdtest = [x for x in meta_data if x['test_type'] == 'mdtest']
+
+    # print mdtest
+    processed_mdtest = []
+    for mdt in mdtest:
+        try:
+            processed_mdtest.append(process_mdtest(mdt))
+        except:
+            pass
+
+    #print(process_mdtest(None, print_labels=True))
+    #for x in sorted(processed_mdtest):
+    #    print(x)
+
+    # print ior
+    processed_ior = []
+    for iort in ior:
+        #try:
+        processed_ior.append(process_ior(iort))
+        #except:
+        #    pass
+
+    print(process_ior(None, print_labels=True))
+    for x in sorted(processed_ior, key=operator.itemgetter(7,2,3,0,1)):
+        print(','.join(x))
+
+    return meta_data
+
+def get_all_meta():
+
+    # get all the paths for the runs to analyze
+    #completed_ior, completed_mdtest  = completed_runs()
+    #completed_ior = [ior_logs_dir / x for x in completed_ior]
+    #completed_mdtest= [mdtest_logs_dir / x for x in completed_mdtest]
+
+    #
+
+    meta_logs = set(meta_data_dir.glob('*')) - {'README.md', 'README.md~'}
+    temp_meta_logs = set(temp_meta_data_dir.glob('*')) - {'README.md', 'README.md~'}
+
+    meta_data_logs = meta_logs | temp_meta_logs
+
+    # make list of meta_data
+    meta_data = []
+    for path in meta_data_logs:
+        with open(path, 'r') as f:
+            meta_data.append(yaml.safe_load(f))
+
+    for x in meta_data:
+        if isinstance(x['jbod_zfs_params'], str):
+            x['jbod_zfs_params'] = ast.literal_eval(x['jbod_zfs_params'])
+
+    return meta_data
+
+
+def process_ior(meta_data, print_labels=False):
+    labels  = [
+        'nodes',
+        'procs',
+        'jbod_mode',
+        'zfs_dirty_data_max',
+        'zfs_dirty_data_max_percent',
+        'zfs_max_recordsize',
+        'recordsize',
+        'op',
+        'read(MiB)',
+        'read(OPs)',
+        'write(MiB)',
+        'write(OPs)',
+    ]
+    if print_labels:
+        return ','.join(labels)
+
+    m = meta_data
+    #print(m)
+    #print(type(m['jbod_zfs_params']))
+    data = [
+        m['num_nodes'],
+        m['num_procs'],
+        m['jbod_zfs_params']['jbod_mode'],
+        m['jbod_zfs_params']['zfs_dirty_data_max'],
+        m['jbod_zfs_params']['zfs_dirty_data_max_percent'],
+        m['jbod_zfs_params']['zfs_max_recordsize'],
+        m['jbod_zfs_params']['recordsize'],
+    ]
+    if 'read' in m['results']:
+        data.append('read')
+        #print(m['results']['ops'])
+        mib_index = m['results']['ops'].index('Mean(MiB)')
+        ops_index = m['results']['ops'].index('Mean(OPs)')
+        data.append(m['results']['read'][mib_index])
+        data.append(m['results']['read'][ops_index])
+        data.append('N/A')
+        data.append('N/A')
+    if 'write' in m['results']:
+        data.append('write')
+        #print(m['results']['ops'])
+        data.append('N/A')
+        data.append('N/A')
+        mib_index = m['results']['ops'].index('Mean(MiB)')
+        ops_index = m['results']['ops'].index('Mean(OPs)')
+        data.append(m['results']['write'][mib_index])
+        data.append(m['results']['write'][ops_index])
+
+
+
+    data = [str(x) for x in data]
+    #data = sorted(data, key=operator.itemgetter(2,0,1))
+    #s = ','.join(data)
+    #print(s)
+    return data
+
+
+def process_mdtest(meta_data, print_labels=False):
+    labels  = [
+        'nodes',
+        'procs',
+        'jbod_mode',
+        'zfs_dirty_data_max',
+        'zfs_dirty_data_max_percent',
+        'zfs_max_recordsize',
+        'recordsize',
+        'file_creation',
+        'file_read',
+        'file_removal',
+        'file_stat',
+        'tree_creation',
+        'tree_removal',
+
+    ]
+    if print_labels:
+        return ','.join(labels)
+
+
+    m = meta_data
+    #print(m)
+    #print(type(m['jbod_zfs_params']))
+    data = [
+        m['num_nodes'],
+        m['num_procs'],
+        m['jbod_zfs_params']['jbod_mode'],
+        m['jbod_zfs_params']['zfs_dirty_data_max'],
+        m['jbod_zfs_params']['zfs_dirty_data_max_percent'],
+        m['jbod_zfs_params']['zfs_max_recordsize'],
+        m['jbod_zfs_params']['recordsize'],
+        m['results']['rate']['file_creation']['mean'],
+        m['results']['rate']['file_read']['mean'],
+        m['results']['rate']['file_removal']['mean'],
+        m['results']['rate']['file_stat']['mean'],
+        m['results']['rate']['tree_creation']['mean'],
+        m['results']['rate']['tree_removal']['mean'],
+    ]
+    data = [str(x) for x in data]
+    s = ','.join(data)
+    #print(s)
+    return s
