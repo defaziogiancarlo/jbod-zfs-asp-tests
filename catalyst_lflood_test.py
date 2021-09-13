@@ -561,10 +561,12 @@ def zfs_jbod_all(args, config):
     do all the testing for mdtest and ior
     and store all the data.
     '''
-    # for num_nodes in [1,2,4,8,16,32]:
-    #     for procs_per_node in [1,2,4,8,16]:
-    for num_nodes in [1]:
-        for procs_per_node in [1]:
+    for num_nodes in [1,2,4,8,16,32]:
+        for procs_per_node in [1,2,4,8,16]:
+            if num_nodes == 1 and procs_per_node < 4:
+                continue
+    # for num_nodes in [1]:
+    #     for procs_per_node in [1]:
 
             num_procs = num_nodes * procs_per_node
             mdtest_create_stat(args, config, num_nodes, num_procs)
