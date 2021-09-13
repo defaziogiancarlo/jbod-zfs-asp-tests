@@ -517,17 +517,18 @@ def mdtest_create_stat(args, config, num_nodes, num_procs):
         num_nodes=num_nodes,
         num_procs=num_procs,
     )
-    single_srun(
-        config,
-        template = cameron_mdtest_stat_template,
-        dryrun=args['dryrun'],
-        jbod_zfs_params=args['zfs_params'],
-        test_type='mdtest',
-        #ts=ts,
-        stone_ts=ts,
-        num_nodes=num_nodes,
-        num_procs=num_procs,
-    )
+    # TODO figure out why stat test fails
+    # single_srun(
+    #     config,
+    #     template = cameron_mdtest_stat_template,
+    #     dryrun=args['dryrun'],
+    #     jbod_zfs_params=args['zfs_params'],
+    #     test_type='mdtest',
+    #     #ts=ts,
+    #     stone_ts=ts,
+    #     num_nodes=num_nodes,
+    #     num_procs=num_procs,
+    # )
 
 
 def ior_write_read(args, config, num_nodes, num_procs):
@@ -554,6 +555,20 @@ def ior_write_read(args, config, num_nodes, num_procs):
         num_nodes=num_nodes,
         num_procs=num_procs,
     )
+
+def zfs_jbod_all(args, config):
+    '''For a given zfs/jbod param combo,
+    do all the testing for mdtest and ior
+    and store all the data.
+    '''
+    # for num_nodes in [1,2,4,8,16,32]:
+    #     for procs_per_node in [1,2,4,8,16]:
+    for num_nodes in [1]:
+        for procs_per_node in [1]:
+
+            num_procs = num_nodes * procs_per_node
+            mdtest_create_stat(args, config, num_nodes, num_procs)
+            ior_write_read(args, config, num_nodes, num_procs)
 
 
 
@@ -633,4 +648,9 @@ if __name__ == '__main__':
     # print(i == itt)
     # print(make_ior_command_from_template(ts, cameron_ior_read_template, config))
 
-    main()
+    parser = make_parser()
+    args = vars(parser.parse_args())
+    config = get_config_values(args)
+
+    zfs_jbod_all(args, config)
+    #main()
