@@ -312,6 +312,11 @@ def make_test_meta_data(command, srun_command, output_logs_path,
     jbod mode
     zfs_params
     '''
+
+    # good chance it's passed in as a string
+    if isinstance(jbod_zfs_params, str):
+        jbod_zfs_params = ast.literal_eval(jbod_zfs_params)
+
     meta_data =  {
         'command': command,
         'srun_command': srun_command,
@@ -356,8 +361,6 @@ def make_srun_command(test_command_path, config, num_nodes=None, num_procs=None)
                                             '-l',
                                             str(test_command_path)]
     return cmd
-
-
 
 
 

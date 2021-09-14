@@ -31,14 +31,14 @@ and used to do performance comparisons between jbod/zfs combos.
 # TODO maybe put it all into a pandas dataframe?
 # you know you want to
 
-
+import ast
 import glob
 import operator
 import pathlib
 import pprint
 import re
 
-#import pandas
+import pandas
 import yaml
 
 default_zfs_params = {
@@ -73,19 +73,30 @@ srun_commands_dir = pathlib.Path(
 
 meta_data_dir = pathlib.Path(
     '/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/test_meta_data'
+    #'/g/g0/defazio1/non-jira-projects/jbod-zfs-asp-tests/temp_test_meta_data'
 )
 
 
 ## get the metadata, and filter for the stuff you care about
 
-def all_meta_data():
+def all_meta_data(directory=None):
     '''Get all the meta-data, but not the temp meta-data.'''
 
-    paths = meta_data_dir.glob('*')
+    if directory is None:
+        directory = meta_data_dir
+
+    paths = directory.glob('*')
     meta_data = []
     for path in paths:
         with open(path, 'r') as f:
-            meta_data.append(yaml.safe_load(f))
+            md = yaml.safe_load(f)
+        if md['dryrun']:
+            continue
+        if isinstance(md['jbod_zfs_params'], str):
+            md['jbod_zfs_params'] = ast.literal_eval(md['jbod_zfs_params'])
+        meta_data.append(md)
+
+
     return meta_data
 
 
@@ -112,6 +123,8 @@ def get_data_from_mdtest(mdtest_logs_path):
         return {n: t for n,t in zip(names, tokens[3:])}
 
 
+    if not pathlib.Path(mdtest_logs_path).exists():
+        print(mdtest_logs_path)
     with open(mdtest_logs_path, 'r') as f:
         lines = f.read().splitlines()
 
@@ -170,6 +183,15 @@ def get_results(path, test_type):
     if test_type == 'mdtest':
         return get_data_from_mdtest(path)
 
+
+def add_results(md):
+    path = md['output_logs_path']
+    test_type = md['test_type']
+    if test_type == 'ior':
+        results =  get_data_from_ior(path)
+    if test_type == 'mdtest':
+        results = get_data_from_mdtest(path)
+    md['results'] = results
 
 def get_nodes_and_procs(path, test_type):
     '''Get the num nodes and num procs out of the log file'''
@@ -293,15 +315,15 @@ def process_ior(meta_data):
     ]
     if 'read' in m['results']:
         data.append('read')
-            mib_index = m['results']['ops'].index('Mean(MiB)')
+        mib_index = m['results']['ops'].index('Mean(MiB)')
         ops_index = m['results']['ops'].index('Mean(OPs)')
         data.append(float(m['results']['read'][mib_index]))
-        data.append(float(m['results']['read'][ops_index])))
+        data.append(float(m['results']['read'][ops_index]))
         data.append(0)
         data.append(0)
     if 'write' in m['results']:
         data.append('write')
-            data.append(0)
+        data.append(0)
         data.append(0)
         mib_index = m['results']['ops'].index('Mean(MiB)')
         ops_index = m['results']['ops'].index('Mean(OPs)')
@@ -339,6 +361,8 @@ def make_table(meta_data_list, earliest=None, test_type='mdtest',
     '''Create a dataframe of all the data.
     zfs can be default, brian, brian_10'''
 
+
+    print(len(meta_data_list))
     if test_type == 'mdtest':
         labels = mdtest_labels
         process_meta_data = process_mdtest
@@ -359,23 +383,48 @@ def make_table(meta_data_list, earliest=None, test_type='mdtest',
             md for md in meta_data_list if
             md['timestamp'] >= earliest
         ]
-
+    print(len(meta_data_list))
     # first filter on test_type
     meta_data_list = [
         md for md in meta_data_list if (
             (md['test_type'] == test_type)
             and
-            (int(md['jbod_zfs_params']['jbod_mode']) == jbod_mode)
-            and
+            (int(md['jbod_zfs_params']['jbod_mode']) == int(jbod_mode))
+            #and
             # subset (could fail on string vs int)
-            (zfs_params.items() <=  md['jbod_zfs_params'].items())
+            #(zfs_params.items() <=  md['jbod_zfs_params'].items())
             and
             (md['test_subtype'] == op)
         )
     ]
 
+    print(len(meta_data_list))
     data = []
     for md in meta_data_list:
-        data.append(process_meta_data(md))
+        try:
+            add_results(md)
+            data.append(process_meta_data(md))
+        except:
+            pass
 
     return pandas.DataFrame(data=data, columns=labels)
+
+def test_1():
+    md = all_meta_data()
+    t = make_table(md, earliest='2021-09-13_130715.021858')
+    print(t.to_csv())
+
+def test_2():
+    md = all_meta_data()
+    t = make_table(md, jbod_mode=2, op='stat')#earliest='2021-09-13_130715.021858', jbod_mode=2)
+    print(t.to_csv())
+
+def test_ior_read_0_default():
+    md = all_meta_data()
+    t = make_table(md,  op='read', test_type='ior', earliest='2021-09-13_130715.021858')
+    print(t.to_csv())
+
+def test_ior_write_0_default():
+    md = all_meta_data()
+    t = make_table(md,  op='write', test_type='ior', earliest='2021-09-13_130715.021858')
+    print(t.to_csv())
